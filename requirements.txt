@@ -1,0 +1,9 @@
+numpy
+torch>=1.5.0
+tqdm
+pyyaml
+numba>=0.39.0
+torch_scatter>=1.3.1
+Cython
+scipy
+dropblock
