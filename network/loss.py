@@ -34,7 +34,7 @@ class FocalLoss(torch.nn.Module):
         return self.neg_loss(out, target)
 
 class panoptic_loss(torch.nn.Module):
-    def __init__(self, ignore_label = 255, center_loss_weight = 100, offset_loss_weight = 1, per_class_heatmap = False, center_loss = 'MSE', offset_loss = 'L1'):
+    def __init__(self, ignore_label = 255, center_loss_weight = 100, offset_loss_weight = 1, center_loss = 'MSE', offset_loss = 'L1'):
         super(panoptic_loss, self).__init__()
         self.CE_loss = torch.nn.CrossEntropyLoss(ignore_index=ignore_label)
         assert center_loss in ['MSE','FocalLoss']
@@ -51,7 +51,6 @@ class panoptic_loss(torch.nn.Module):
         else: raise NotImplementedError
         self.center_loss_weight = center_loss_weight
         self.offset_loss_weight = offset_loss_weight
-        self.per_class_heatmap = per_class_heatmap
 
         print('Using '+ center_loss +' for heatmap regression, weight: '+str(center_loss_weight))
         print('Using '+ offset_loss +' for offset regression, weight: '+str(offset_loss_weight))
@@ -71,11 +70,7 @@ class panoptic_loss(torch.nn.Module):
         if save_loss:
             self.lost_dict['semantic_loss'].append(loss.item())
         # center heatmap loss
-        if self.per_class_heatmap:
-            center_mask = (torch.max(gt_center,dim=1,keepdim=True)[0]>0) | (torch.min(torch.unsqueeze(gt_label, 1),dim=4)[0]<255)
-            center_mask = center_mask.repeat(1,8,1,1)
-        else:
-            center_mask = (gt_center>0) | (torch.min(torch.unsqueeze(gt_label, 1),dim=4)[0]<255)
+        center_mask = (gt_center>0) | (torch.min(torch.unsqueeze(gt_label, 1),dim=4)[0]<255)
         center_loss = self.center_loss_fn(center,gt_center) * center_mask
         # safe division
         if center_mask.sum() > 0:

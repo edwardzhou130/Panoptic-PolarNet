@@ -3,11 +3,16 @@
 import numpy as np
 
 class PanopticLabelGenerator(object):
-    def __init__(self,grid_size,sigma=5,polar=False,learning_map=None,thing_class_num=8):
+    def __init__(self,grid_size,sigma=5,polar=False):
+        """Initialize panoptic ground truth generator
+
+        Args:
+            grid_size: voxel size.
+            sigma (int, optional):  Gaussian distribution paramter. Create heatmap in +-3*sigma window. Defaults to 5.
+            polar (bool, optional): Is under polar coordinate. Defaults to False.
+        """        
         self.grid_size = grid_size
         self.polar = polar
-        self.learning_map = learning_map
-        self.thing_class_num = thing_class_num
 
         self.sigma = sigma
         size = 6 * sigma + 3
@@ -17,6 +22,20 @@ class PanopticLabelGenerator(object):
         self.g = np.exp(- ((x - x0) ** 2 + (y - y0) ** 2) / (2 * sigma ** 2))
     
     def __call__(self,inst,xyz,voxel_inst,voxel_position,label_dict,min_bound,intervals):
+        """Generate instance center and offset ground truth
+
+        Args:
+            inst : instance panoptic label (N)
+            xyz : point location (N x 3)
+            voxel_inst : voxel panoptic label on the BEV (H x W)
+            voxel_position : voxel location on the BEV (3 x H x W)
+            label_dict : unqiue instance label dict
+            min_bound : space minimal bound
+            intervals : voxelization intervals
+
+        Returns:
+            center, center_pts, offset
+        """        
         height, width = self.grid_size[0],self.grid_size[1]
 
         center = np.zeros((1, height, width), dtype=np.float32)
