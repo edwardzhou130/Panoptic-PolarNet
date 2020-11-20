@@ -173,6 +173,7 @@ def main(args):
                 
                 # self adversarial pruning
                 if args['model']['enable_SAP'] and epoch>=args['model']['SAP']['start_epoch']:
+                    loss.backward()
                     for i,fea in enumerate(train_pt_fea_ten):
                         fea_grad = torch.norm(fea.grad,dim=1)
                         top_k_grad, _ = torch.topk(fea_grad, int(args['model']['SAP']['rate']*fea_grad.shape[0]))
