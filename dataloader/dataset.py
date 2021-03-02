@@ -370,7 +370,20 @@ class spherical_dataset(data.Dataset):
 
         center,center_points,offset = self.panoptic_proc(insts[mask],xyz[:np.size(labels)][mask[:,0]],processed_inst,voxel_position[:2,:,:,0],unique_label_dict,min_bound,intervals)
 
-        data_tuple = (voxel_position,processed_label,center,offset)
+        # prepare visiblity feature
+        # find max distance index in each angle,height pair
+        valid_label = np.zeros_like(processed_label,dtype=bool)
+        valid_label[current_grid[:,0],current_grid[:,1],current_grid[:,2]] = True
+        valid_label = valid_label[::-1]
+        max_distance_index = np.argmax(valid_label,axis=0)
+        max_distance = max_bound[0]-intervals[0]*(max_distance_index)
+        distance_feature = np.expand_dims(max_distance, axis=2)-np.transpose(voxel_position[0],(1,2,0))
+        distance_feature = np.transpose(distance_feature,(1,2,0))
+        # convert to boolean feature
+        distance_feature = (distance_feature>0)*-1.
+        distance_feature[current_grid[:,2],current_grid[:,0],current_grid[:,1]]=1.
+
+        data_tuple = (distance_feature,processed_label,center,offset)
 
         # center data on each voxel for PTnet
         voxel_centers = (grid_ind.astype(np.float32) + 0.5)*intervals + min_bound

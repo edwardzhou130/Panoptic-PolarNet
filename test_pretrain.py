@@ -37,6 +37,7 @@ def main(args):
     output_path = args['dataset']['output_path']
     compression_model = args['dataset']['grid_size'][2]
     grid_size = args['dataset']['grid_size']
+    visibility = args['model']['visibility']
     pytorch_device = torch.device('cuda:0')
     if args['model']['polar']:
         fea_dim = 9
@@ -50,7 +51,7 @@ def main(args):
     unique_label_str=[SemKITTI_label_name[x] for x in unique_label+1]
 
     # prepare model
-    my_BEV_model=BEV_Unet(n_class=len(unique_label), n_height = compression_model, input_batch_norm = True, dropout = 0.5, circular_padding = circular_padding)
+    my_BEV_model=BEV_Unet(n_class=len(unique_label), n_height = compression_model, input_batch_norm = True, dropout = 0.5, circular_padding = circular_padding, use_vis_fea=visibility)
     my_model = ptBEVnet(my_BEV_model, pt_model = 'pointnet', grid_size =  grid_size, fea_dim = fea_dim, max_pt_per_encode = 256,
                             out_pt_fea_dim = 512, kernal_size = 1, pt_selection = 'random', fea_compre = compression_model)
     if os.path.exists(pretrained_model):
@@ -90,6 +91,7 @@ def main(args):
     evaluator = PanopticEval(len(unique_label)+1, None, [0], min_points=50)
     with torch.no_grad():
         for i_iter_val,(val_vox_fea,val_vox_label,val_gt_center,val_gt_offset,val_grid,val_pt_labels,val_pt_ints,val_pt_fea) in enumerate(val_dataset_loader):
+            val_vox_fea_ten = val_vox_fea.to(pytorch_device)
             val_vox_label = SemKITTI2train(val_vox_label)
             val_pt_fea_ten = [torch.from_numpy(i).type(torch.FloatTensor).to(pytorch_device) for i in val_pt_fea]
             val_grid_ten = [torch.from_numpy(i[:,:2]).to(pytorch_device) for i in val_grid]
@@ -98,8 +100,11 @@ def main(args):
             val_gt_offset_tensor = val_gt_offset.to(pytorch_device)
 
             torch.cuda.synchronize()
-            start_time = time.time()            
-            predict_labels,center,offset = my_model(val_pt_fea_ten, val_grid_ten)
+            start_time = time.time()
+            if visibility:            
+                predict_labels,center,offset = my_model(val_pt_fea_ten, val_grid_ten, val_vox_fea_ten)
+            else:
+                predict_labels,center,offset = my_model(val_pt_fea_ten, val_grid_ten)
             torch.cuda.synchronize()
             time_list.append(time.time()-start_time)
 
@@ -141,12 +146,16 @@ def main(args):
     print('*'*80)
     pbar = tqdm(total=len(test_dataset_loader))
     with torch.no_grad():
-        for i_iter_test,(_,_,_,_,test_grid,_,_,test_pt_fea,test_index) in enumerate(test_dataset_loader):
+        for i_iter_test,(test_vox_fea,_,_,_,test_grid,_,_,test_pt_fea,test_index) in enumerate(test_dataset_loader):
             # predict
+            test_vox_fea_ten = test_vox_fea.to(pytorch_device)
             test_pt_fea_ten = [torch.from_numpy(i).type(torch.FloatTensor).to(pytorch_device) for i in test_pt_fea]
             test_grid_ten = [torch.from_numpy(i[:,:2]).to(pytorch_device) for i in test_grid]
 
-            predict_labels,center,offset = my_model(test_pt_fea_ten,test_grid_ten)
+            if visibility:
+                predict_labels,center,offset = my_model(test_pt_fea_ten,test_grid_ten,test_vox_fea_ten)
+            else:
+                predict_labels,center,offset = my_model(test_pt_fea_ten,test_grid_ten)
             # write to label file
             for count,i_test_grid in enumerate(test_grid):
                 # get foreground_mask

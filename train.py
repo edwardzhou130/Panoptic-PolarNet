@@ -45,6 +45,7 @@ def main(args):
     pretrained_model = args['model']['pretrained_model']
     compression_model = args['dataset']['grid_size'][2]
     grid_size = args['dataset']['grid_size']
+    visibility = args['model']['visibility']
     pytorch_device = torch.device('cuda:0')
     if args['model']['polar']:
         fea_dim = 9
@@ -58,7 +59,7 @@ def main(args):
     unique_label_str=[SemKITTI_label_name[x] for x in unique_label+1]
 
     #prepare model
-    my_BEV_model=BEV_Unet(n_class=len(unique_label), n_height = compression_model, input_batch_norm = True, dropout = 0.5, circular_padding = circular_padding)
+    my_BEV_model=BEV_Unet(n_class=len(unique_label), n_height = compression_model, input_batch_norm = True, dropout = 0.5, circular_padding = circular_padding, use_vis_fea=visibility)
     my_model = ptBEVnet(my_BEV_model, pt_model = 'pointnet', grid_size =  grid_size, fea_dim = fea_dim, max_pt_per_encode = 256,
                             out_pt_fea_dim = 512, kernal_size = 1, pt_selection = 'random', fea_compre = compression_model)
     if os.path.exists(model_save_path):
@@ -102,13 +103,14 @@ def main(args):
 
     while True:
         pbar = tqdm(total=len(train_dataset_loader))
-        for i_iter,(_,train_label_tensor,train_gt_center,train_gt_offset,train_grid,_,_,train_pt_fea) in enumerate(train_dataset_loader):
+        for i_iter,(train_vox_fea,train_label_tensor,train_gt_center,train_gt_offset,train_grid,_,_,train_pt_fea) in enumerate(train_dataset_loader):
             # validation
             if global_iter % check_iter == 0:
                 my_model.eval()
                 evaluator.reset()
                 with torch.no_grad():
-                    for i_iter_val,(_,val_vox_label,val_gt_center,val_gt_offset,val_grid,val_pt_labels,val_pt_ints,val_pt_fea) in enumerate(val_dataset_loader):
+                    for i_iter_val,(val_vox_fea,val_vox_label,val_gt_center,val_gt_offset,val_grid,val_pt_labels,val_pt_ints,val_pt_fea) in enumerate(val_dataset_loader):
+                        val_vox_fea_ten = val_vox_fea.to(pytorch_device)
                         val_vox_label = SemKITTI2train(val_vox_label)
                         val_pt_fea_ten = [torch.from_numpy(i).type(torch.FloatTensor).to(pytorch_device) for i in val_pt_fea]
                         val_grid_ten = [torch.from_numpy(i[:,:2]).to(pytorch_device) for i in val_grid]
@@ -116,7 +118,11 @@ def main(args):
                         val_gt_center_tensor = val_gt_center.to(pytorch_device)
                         val_gt_offset_tensor = val_gt_offset.to(pytorch_device)
 
-                        predict_labels,center,offset = my_model(val_pt_fea_ten, val_grid_ten)
+                        if visibility:
+                            predict_labels,center,offset = my_model(val_pt_fea_ten, val_grid_ten, val_vox_fea_ten)
+                        else:
+                            predict_labels,center,offset = my_model(val_pt_fea_ten, val_grid_ten)
+
                         for count,i_val_grid in enumerate(val_grid):
                             # get foreground_mask
                             for_mask = torch.zeros(1,grid_size[0],grid_size[1],grid_size[2],dtype=torch.bool).to(pytorch_device)
@@ -155,6 +161,7 @@ def main(args):
 
             # training
             try:
+                train_vox_fea_ten = train_vox_fea.to(pytorch_device)
                 train_label_tensor = SemKITTI2train(train_label_tensor)
                 train_pt_fea_ten = [torch.from_numpy(i).type(torch.FloatTensor).to(pytorch_device) for i in train_pt_fea]
                 train_grid_ten = [torch.from_numpy(i[:,:2]).to(pytorch_device) for i in train_grid]
@@ -167,9 +174,13 @@ def main(args):
                         fea.requires_grad_()
         
                 # forward
-                sem_prediction,center,offset = my_model(train_pt_fea_ten,train_grid_ten)
+                if visibility:
+                    sem_prediction,center,offset = my_model(train_pt_fea_ten,train_grid_ten,train_vox_fea_ten)
+                else:
+                    sem_prediction,center,offset = my_model(train_pt_fea_ten,train_grid_ten)
                 # loss
                 loss = loss_fn(sem_prediction,center,offset,train_label_tensor,train_gt_center_tensor,train_gt_offset_tensor)
+                
                 
                 # self adversarial pruning
                 if args['model']['enable_SAP'] and epoch>=args['model']['SAP']['start_epoch']:
@@ -184,7 +195,10 @@ def main(args):
 
                     # second pass
                     # forward
-                    sem_prediction,center,offset = my_model(train_pt_fea_ten,train_grid_ten)
+                    if visibility:
+                        sem_prediction,center,offset = my_model(train_pt_fea_ten,train_grid_ten,train_vox_fea_ten)
+                    else:
+                        sem_prediction,center,offset = my_model(train_pt_fea_ten,train_grid_ten)
                     # loss
                     loss = loss_fn(sem_prediction,center,offset,train_label_tensor,train_gt_center_tensor,train_gt_offset_tensor)
                     
