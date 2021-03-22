@@ -26,6 +26,7 @@ model:
     val_batch_size: 2
     test_batch_size: 1
     check_iter: 4000
+    max_epoch: 100
     post_proc:
         threshold: 0.1
         nms_kernel: 5

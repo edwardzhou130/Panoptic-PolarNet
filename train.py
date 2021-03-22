@@ -101,7 +101,7 @@ def main(args):
     exce_counter = 0
     evaluator = PanopticEval(len(unique_label)+1, None, [0], min_points=50)
 
-    while True:
+    while epoch < args['model']['max_epoch']:
         pbar = tqdm(total=len(train_dataset_loader))
         for i_iter,(train_vox_fea,train_label_tensor,train_gt_center,train_gt_offset,train_grid,_,_,train_pt_fea) in enumerate(train_dataset_loader):
             # validation
