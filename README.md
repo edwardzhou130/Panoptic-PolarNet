@@ -1,6 +1,8 @@
 # Panoptic-PolarNet
 This is the official implementation of Panoptic-PolarNet.
 
+[[**ArXiv paper**]](https://arxiv.org/abs/2103.14962)
+
 <p align="center">
         <img src="imgs/Visualization.gif" width="60%"> 
 </p>
@@ -86,3 +88,20 @@ python test_pretrain.py
 Result will be stored in `./out` folder. Test performance can be evaluated by uploading label results onto the SemanticKITTI competition website [here](https://competitions.codalab.org/competitions/24025).
 
 ## Citation
+Please cite our paper if this code benefits your research:
+```
+@inproceedings{Zhou2021PanopticPolarNet,
+author={Zhou, Zixiang and Zhang, Yang and Foroosh, Hassan},
+title={Panoptic-PolarNet: Proposal-free LiDAR Point Cloud Panoptic Segmentation},
+booktitle = {Proceedings of the IEEE/CVF Conference on Computer Vision and Pattern Recognition (CVPR)},
+year={2021}
+}
+
+@InProceedings{Zhang_2020_CVPR,
+author = {Zhang, Yang and Zhou, Zixiang and David, Philip and Yue, Xiangyu and Xi, Zerong and Gong, Boqing and Foroosh, Hassan},
+title = {PolarNet: An Improved Grid Representation for Online LiDAR Point Clouds Semantic Segmentation},
+booktitle = {Proceedings of the IEEE/CVF Conference on Computer Vision and Pattern Recognition (CVPR)},
+month = {June},
+year = {2020}
+}
+```
