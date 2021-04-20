@@ -159,7 +159,10 @@ class instance_augmentation(object):
 
     def check_occlusion(self,points,center,min_dist=2):
         'check if close to a point'
-        dist = np.linalg.norm(points-center,axis=0)
+        if points.ndim == 1:
+            dist = np.linalg.norm(points[np.newaxis,:]-center,axis=1)
+        else:
+            dist = np.linalg.norm(points-center,axis=1)
         return np.all(dist>min_dist)
 
     def rotate_origin(self,xyz,radians):
